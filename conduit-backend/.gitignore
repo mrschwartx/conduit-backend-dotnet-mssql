@@ -1,0 +1,10 @@
+bin/
+obj/
+TestResults/
+.vs/
+.idea/
+*.user
+*.suo
+.env
+public/images/users/*
+!public/images/users/default-avatar.jpg

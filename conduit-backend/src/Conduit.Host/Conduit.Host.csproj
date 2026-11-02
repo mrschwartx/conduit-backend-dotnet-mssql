@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Conduit.Host</AssemblyName>
+    <RootNamespace>Conduit.Host</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Conduit.SharedKernel\Conduit.SharedKernel.csproj" />
+    <ProjectReference Include="..\Modules\Users\Conduit.Modules.Users\Conduit.Modules.Users.csproj" />
+    <ProjectReference Include="..\Modules\Articles\Conduit.Modules.Articles\Conduit.Modules.Articles.csproj" />
+    <ProjectReference Include="..\Modules\Comments\Conduit.Modules.Comments\Conduit.Modules.Comments.csproj" />
+  </ItemGroup>
+</Project>

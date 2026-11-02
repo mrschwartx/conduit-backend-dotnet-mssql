@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Conduit.Host/Conduit.Host.csproj" />
+    <Project Path="src/Conduit.SharedKernel/Conduit.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/Users/Conduit.Modules.Users/Conduit.Modules.Users.csproj" />
+    <Project Path="src/Modules/Articles/Conduit.Modules.Articles/Conduit.Modules.Articles.csproj" />
+    <Project Path="src/Modules/Comments/Conduit.Modules.Comments/Conduit.Modules.Comments.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Conduit.UnitTests/Conduit.UnitTests.csproj" />
+    <Project Path="tests/Conduit.IntegrationTests/Conduit.IntegrationTests.csproj" />
+    <Project Path="tests/Conduit.ArchitectureTests/Conduit.ArchitectureTests.csproj" />
+  </Folder>
+</Solution>

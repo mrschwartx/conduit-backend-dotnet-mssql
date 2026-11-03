@@ -12,7 +12,7 @@ public sealed class ModuleBoundaryTests
     private static readonly string[] Frameworks =
     [
         "Microsoft.AspNetCore",
-        "Npgsql",
+        "Microsoft.Data.SqlClient",
         "BCrypt",
         "Microsoft.IdentityModel"
     ];
@@ -101,7 +101,7 @@ public sealed class ModuleBoundaryTests
         AssertNoDependencies(
             typeof(SharedKernelServiceCollectionExtensions).Assembly,
             "Conduit.SharedKernel.Domain",
-            ["Conduit.SharedKernel.Infrastructure", "Conduit.SharedKernel.Application", "Microsoft.AspNetCore", "Npgsql"]);
+            ["Conduit.SharedKernel.Infrastructure", "Conduit.SharedKernel.Application", "Microsoft.AspNetCore", "Microsoft.Data.SqlClient"]);
     }
 
     private static string[] Layers(string module, params string[] layers) =>

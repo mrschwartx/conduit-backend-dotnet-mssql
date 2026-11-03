@@ -1,9 +1,8 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Npgsql;
 
 namespace Conduit.SharedKernel.Infrastructure.Persistence;
 
-public sealed class DatabaseHealthCheck(NpgsqlDataSource dataSource) : IHealthCheck
+public sealed class DatabaseHealthCheck(SqlServerDataSource dataSource) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -11,7 +10,8 @@ public sealed class DatabaseHealthCheck(NpgsqlDataSource dataSource) : IHealthCh
     {
         try
         {
-            await using var command = dataSource.CreateCommand("SELECT 1");
+            await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+            await using var command = connection.CreateCommand("SELECT 1");
             await command.ExecuteScalarAsync(cancellationToken);
             return HealthCheckResult.Healthy();
         }

@@ -14,7 +14,7 @@ public static class CommentsModule
 {
     public static IServiceCollection AddCommentsModule(this IServiceCollection services)
     {
-        services.AddSingleton<ICommentRepository, PostgresCommentRepository>();
+        services.AddSingleton<ICommentRepository, SqlServerCommentRepository>();
 
         services.AddSingleton<CreateComment>();
         services.AddSingleton<ListComments>();

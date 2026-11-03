@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 using Conduit.IntegrationTests.Support;
 using Conduit.Modules.Articles;
 using Conduit.Modules.Comments;
@@ -12,17 +12,16 @@ public sealed class MigratorTests : IAsyncLifetime
 {
     private TestDatabase database = null!;
 
-    private NpgsqlDataSource dataSource = null!;
+    private SqlServerDataSource dataSource = null!;
 
     public async Task InitializeAsync()
     {
         database = await TestDatabase.CreateAsync();
-        dataSource = NpgsqlDataSource.Create(database.ConnectionString);
+        dataSource = new SqlServerDataSource(database.ConnectionString);
     }
 
     public async Task DisposeAsync()
     {
-        await dataSource.DisposeAsync();
         await database.DisposeAsync();
     }
 
@@ -63,7 +62,7 @@ public sealed class MigratorTests : IAsyncLifetime
             ("0001_ok.sql", "CREATE TABLE kept_table (id INT);"),
             ("0002_broken.sql", "CREATE TABLE rolled_back (id INT); SELECT * FROM missing_table;"));
 
-        await Assert.ThrowsAsync<PostgresException>(() => CreateMigrator(source).MigrateAsync());
+        await Assert.ThrowsAsync<SqlException>(() => CreateMigrator(source).MigrateAsync());
 
         Assert.True(await database.TableExistsAsync(dataSource, "kept_table"));
         Assert.False(await database.TableExistsAsync(dataSource, "rolled_back"));
@@ -90,7 +89,14 @@ public sealed class MigratorTests : IAsyncLifetime
         var executed = await migrator.MigrateAsync();
 
         Assert.Equal(
-            new[] { "0001_create_users.sql", "0002_create_follows.sql", "0003_create_articles.sql", "0004_create_comments.sql" },
+            new[]
+            {
+                "0001_create_users.sql",
+                "0002_create_follows.sql",
+                "0003_create_articles.sql",
+                "0004_create_comments.sql",
+                "0005_users_delete_cascade.sql"
+            },
             executed.ToArray());
         foreach (var table in new[] { "users", "follows", "articles", "article_tags", "favorites", "comments" })
         {
@@ -101,7 +107,8 @@ public sealed class MigratorTests : IAsyncLifetime
     private async Task<string[]> RecordedAsync()
     {
         var names = new List<string>();
-        await using var command = dataSource.CreateCommand("SELECT name FROM schema_migrations ORDER BY name");
+        await using var connection = await dataSource.OpenConnectionAsync();
+        await using var command = connection.CreateCommand("SELECT name FROM schema_migrations ORDER BY name");
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {

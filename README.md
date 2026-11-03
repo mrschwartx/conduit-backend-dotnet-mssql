@@ -1,10 +1,10 @@
 # Conduit Backend (.NET)
 
-The backend of Conduit, the RealWorld blogging platform: users sign up and sign in, edit their profile, follow other authors, publish articles with tags, favorite articles and comment on them. It is a REST API built with ASP.NET Core and PostgreSQL, organised as a modular monolith with Domain-Driven Design and Clean Architecture. It is the .NET sibling of the Express backend and implements the same HTTP contract, described in `conduit-openapi/openapi.yml`.
+The backend of Conduit, the RealWorld blogging platform: users sign up and sign in, edit their profile, follow other authors, publish articles with tags, favorite articles and comment on them. It is a REST API built with ASP.NET Core and SQL Server, organised as a modular monolith with Domain-Driven Design and Clean Architecture. It is the .NET sibling of the Express backend and implements the same HTTP contract, described in `conduit-openapi/openapi.yml`.
 
 The browser client is the separate Conduit React frontend that talks to this API.
 
-**Stack:** .NET 10 · ASP.NET Core Minimal APIs · Npgsql · PostgreSQL 18 · versioned SQL migrations · JWT (Microsoft.IdentityModel) · bcrypt · xUnit · NetArchTest · Docker · GitHub Actions
+**Stack:** .NET 10 · ASP.NET Core Minimal APIs · Microsoft.Data.SqlClient · SQL Server 2022 · versioned SQL migrations · JWT (Microsoft.IdentityModel) · bcrypt · xUnit · NetArchTest · Docker · GitHub Actions
 
 ## Contents
 
@@ -18,6 +18,7 @@ The browser client is the separate Conduit React frontend that talks to this API
 - [CI](#ci)
 - [Limits](#limits)
 - [Migrating from Taskly](#migrating-from-taskly)
+- [Migrating from PostgreSQL](#migrating-from-postgresql)
 - [References](#references)
 
 ## Quick start
@@ -31,7 +32,7 @@ cd ../conduit-backend
 make dev
 ```
 
-`make dev` creates `.env` from `.env.example` with a generated `AUTH_SECRET` on the first run, then starts the API. The API runs at http://localhost:8080 and pgAdmin at http://localhost:8081 (login `admin@conduit.dev` / `admin`, server host `conduit-postgres`, user `dev_user`, password `dev_pass`). Migrations run automatically on startup. Values in `.env` are read from the working directory, so run the commands from `conduit-backend`. Regular environment variables take precedence over `.env`.
+`make dev` creates `.env` from `.env.example` with a generated `AUTH_SECRET` on the first run, then starts the API. The API runs at http://localhost:8080 and SQL Server at localhost:1433 (user `sa`, password `Dev_Pass123`, database `conduit_dev`). The health check of the development container creates the `conduit_dev` database when it is missing. With any other SQL Server, create the database named in `DATABASE_URL` first, the application creates the tables but not the database. Migrations run automatically on startup. Values in `.env` are read from the working directory, so run the commands from `conduit-backend`. Regular environment variables take precedence over `.env`.
 
 | Goal                | Command                                   |
 | ------------------- | ----------------------------------------- |
@@ -44,7 +45,7 @@ make dev
 | Seed in Docker      | `make docker/seed` (from `conduit-docker`)|
 | Stop Docker         | `make docker/down` (from `conduit-docker`)|
 
-`make docker/up` creates `conduit-docker/.env` with a random database password and `AUTH_SECRET` on the first run, then starts PostgreSQL and the API and waits until both are healthy. `PORT` overrides the host port in the Docker setup. The container always listens on port 8080. Demo logins after seeding: `johndoe123@mail.com` / `password123` and `jane@mail.com` / `securepassword456`.
+`make docker/up` creates `conduit-docker/.env` with a random database password and `AUTH_SECRET` on the first run, then starts SQL Server and the API and waits until both are healthy. `PORT` overrides the host port in the Docker setup. The container always listens on port 8080. Demo logins after seeding: `johndoe123@mail.com` / `password123` and `jane@mail.com` / `securepassword456`.
 
 ## Features
 
@@ -64,7 +65,7 @@ make dev
 | `APP_HOST`              | `0.0.0.0`               | Bind address                                             |
 | `APP_PORT`              | `8080`                  | Port the API listens on                                  |
 | `APP_LEVEL`             | `development`           | Environment level, `production` blocks seeding by default|
-| `DATABASE_URL`          | required                | `postgres://user:password@host:5432/db`, an Npgsql connection string is accepted too |
+| `DATABASE_URL`          | required                | `sqlserver://user:password@host:1433/db`, optionally with `?encrypt=true\|false\|strict&trustServerCertificate=true`, a SQL Server connection string is accepted too |
 | `DATABASE_POOL_MAX`     | `10`                    | Maximum connections in the pool                          |
 | `DATABASE_TIMEOUT`      | `30000`                 | Connection timeout in milliseconds                       |
 | `AUTH_SECRET`           | required                | JWT secret, at least 32 characters                       |
@@ -79,9 +80,8 @@ Docker only, in `conduit-docker/.env`:
 | Variable      | Default   | Purpose                                 |
 | ------------- | --------- | --------------------------------------- |
 | `PORT`        | `8080`    | Host port used by Docker                |
-| `DB_NAME`     | `conduit` | PostgreSQL database name                |
-| `DB_USER`     | `conduit` | PostgreSQL user                         |
-| `DB_PASSWORD` | required  | PostgreSQL password, generated by make  |
+| `DB_NAME`     | `conduit` | SQL Server database name                |
+| `DB_PASSWORD` | required  | Password of the `sa` login, generated by make |
 
 The frontend must set its API base URL to `http://localhost:8080/api/v1`.
 
@@ -102,7 +102,7 @@ conduit-backend/
       Comments/Conduit.Modules.Comments/    comments on articles
   tests/
     Conduit.UnitTests/                      domain, use cases, JWT, bcrypt, middleware, configuration
-    Conduit.IntegrationTests/               full HTTP flows and migrations on a real PostgreSQL
+    Conduit.IntegrationTests/               full HTTP flows and migrations on a real SQL Server
     Conduit.ArchitectureTests/              layer and module boundary rules
 conduit-docker/
   conduit-backend-dotnet/Dockerfile
@@ -119,7 +119,7 @@ conduit-openapi/openapi.yml                 the HTTP contract
 Conduit.Modules.<Module>/
   Domain/          entities, value objects, repository and service contracts
   Application/     use cases
-  Infrastructure/  Npgsql, JWT and bcrypt adapters, SQL migrations
+  Infrastructure/  SQL Server, JWT and bcrypt adapters, SQL migrations
   Presentation/    Minimal API endpoints
   <Module>Module.cs  dependency injection and endpoint registration
 ```
@@ -134,18 +134,22 @@ Conduit.Modules.<Module>/
 
 ## Database
 
-Schema changes live in each module as `Infrastructure/Persistence/Migrations/<number>_<name>.sql`, embedded in the assembly. `SqlMigrator` collects the scripts of all modules, sorts them by name and applies the pending ones on startup under a PostgreSQL advisory lock, one transaction per script. Applied names are recorded in `schema_migrations`.
+Schema changes live in each module as `Infrastructure/Persistence/Migrations/<number>_<name>.sql`, embedded in the assembly. `SqlMigrator` collects the scripts of all modules, sorts them by name and applies the pending ones on startup under a SQL Server application lock (`sp_getapplock`), one transaction per script, so every script is sent to the server as a single batch. Applied names are recorded in `schema_migrations`.
 
 | Table          | Notes                                                                                             |
 | -------------- | ------------------------------------------------------------------------------------------------- |
-| `users`        | `id` UUID, case-insensitive unique `email` and `username`, `password_hash`, nullable `bio` and `image`, timestamps |
+| `users`        | `id` UNIQUEIDENTIFIER, case-insensitive unique `email` and `username` through persisted lowercase columns, `password_hash`, nullable `bio` and `image`, timestamps |
 | `follows`      | `(follower_id, followed_id)` primary key, both reference `users`, a user cannot follow itself    |
-| `articles`     | `id` UUID, `author_id`, unique `slug` (never `feed`), `title`, `description`, `body`, an identity `seq` used as a tie-breaker, timestamps |
+| `articles`     | `id` UNIQUEIDENTIFIER, `author_id`, unique `slug` (never `feed`), `title`, `description`, `body`, an identity `seq` used as a tie-breaker, timestamps |
 | `article_tags` | `(article_id, position)` primary key keeps the tag order, unique `(article_id, tag)`              |
 | `favorites`    | `(user_id, article_id)` primary key                                                              |
-| `comments`     | `id` BIGINT identity, `article_id`, `author_id`, `body`, timestamps                              |
+| `comments`     | `id` BIGINT IDENTITY, `article_id`, `author_id`, `body`, timestamps                              |
 
-- Every foreign key uses `ON DELETE CASCADE`, so deleting an article removes its tags, favorites and comments.
+- Deleting an article removes its tags, favorites and comments through `ON DELETE CASCADE`.
+- SQL Server rejects tables reachable through more than one cascade path, so `comments.author_id`, `favorites.user_id` and `follows.followed_id` are plain foreign keys. The `INSTEAD OF DELETE` trigger `users_delete_cascade` (migration `0005_users_delete_cascade.sql`) removes those rows when a user is deleted, which keeps the behaviour of the PostgreSQL schema.
+- Text columns are `NVARCHAR` and sized at twice the length the domain validates, because SQL Server counts UTF-16 code units and the domain counts characters.
+- `slug` and `tag` use the binary collation `Latin1_General_100_BIN2`, so they stay case-sensitive and sorted by code point whatever the collation of the database.
+- Timestamps are `DATETIMEOFFSET(3)`, stored in UTC with millisecond precision.
 - Listings are ordered by `created_at` and then by the identity column, so ties on the creation time still give a stable order.
 - Timestamps are returned as ISO 8601 UTC strings with milliseconds, for example `2026-01-01T00:00:00.000Z`.
 
@@ -205,12 +209,12 @@ Rules worth knowing:
 | ------------ | ------------------------ | ----------------------------------------------------------------------- |
 | Unit         | `make test/unit`         | Domain, use cases, JWT, bcrypt, middleware and configuration, no I/O    |
 | Architecture | `make test/architecture` | Layers and modules respect the dependency rules                         |
-| Integration  | `make test/integration`  | Full HTTP flows and migrations on a real PostgreSQL                     |
+| Integration  | `make test/integration`  | Full HTTP flows and migrations on a real SQL Server                     |
 
-Integration tests need a PostgreSQL server where the user can create databases. They read `TEST_DATABASE_URL` and default to the development database from `make docker/dev-up`. The suite creates its own temporary databases, runs the migrations and drops them when it finishes.
+Integration tests need a SQL Server instance where the login can create and drop databases. They read `TEST_DATABASE_URL` and default to the local SQL Server from the quick start, always connecting through `master`. The suite creates its own temporary databases, runs the migrations and drops them when it finishes.
 
 ```sh
-TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres dotnet test tests/Conduit.IntegrationTests
+TEST_DATABASE_URL="sqlserver://sa:Dev_Pass123@localhost:1433/master?trustServerCertificate=true" dotnet test tests/Conduit.IntegrationTests
 ```
 
 ## CI
@@ -219,12 +223,12 @@ TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres dotnet te
 
 1. **Commitlint**: commit message linting on pull requests, configured in `.commitlintrc.json`.
 2. **Build**: restores and compiles the solution with the .NET 10 SDK.
-3. **Tests**: unit, architecture and integration suites against a PostgreSQL 18 service.
+3. **Tests**: unit, architecture and integration suites against a SQL Server 2022 service.
 4. **Docker**: builds the image, starts the Compose stack, then checks `/health`, registers a user, reads `/tags` and runs the seed.
 
 ## Limits
 
-- The API needs a running PostgreSQL.
+- The API needs a running SQL Server 2017 or newer, the queries use `STRING_AGG`, `OPENJSON` and `OFFSET ... FETCH`, which need compatibility level 130 or higher.
 - Events are delivered in-process, so the app runs as a single instance.
 - Logs go to the console only. Collect them from the container output.
 - Access tokens are stateless and live for `AUTH_TOKEN_TTL`. A token of a deleted user is rejected as invalid on its next use because the user is checked on every request.
@@ -240,11 +244,21 @@ This version replaces the Taskly task manager. The business, the HTTP contract a
 - The `/` route is gone. Use `/health`, which now answers `OK` as plain text.
 - Errors changed from `{ "status", "message" }` to `{ "errors": { field: [messages] } }`.
 
+## Migrating from PostgreSQL
+
+This version replaces PostgreSQL with SQL Server. The HTTP contract is unchanged, the schema keeps the same tables and columns:
+
+- Start with an empty SQL Server database. The migration scripts were rewritten in T-SQL and are not applied to an existing PostgreSQL database, and no tool moves the data.
+- `DATABASE_URL` uses `sqlserver://` instead of `postgres://`. Local servers with a self-signed certificate need `?trustServerCertificate=true`.
+- Npgsql was replaced by `Microsoft.Data.SqlClient`, `PostgresErrors` by `SqlServerErrors` and the `Postgres*Repository` classes by `SqlServer*Repository`.
+- Migrations take an application lock instead of a PostgreSQL advisory lock.
+- The Compose files in `conduit-docker` run SQL Server 2022 instead of PostgreSQL and pgAdmin is gone. The backend connects as `sa`, `DB_USER` no longer exists and `DB_PASSWORD` is the `sa` password, which `make docker/env` generates so that it meets the SQL Server password policy. The database itself is created by the health check of the SQL Server container.
+
 ## References
 
 - [ASP.NET Core](https://learn.microsoft.com/aspnet/core)
-- [Npgsql](https://www.npgsql.org/doc/)
-- [PostgreSQL](https://www.postgresql.org/docs/18/)
+- [Microsoft.Data.SqlClient](https://learn.microsoft.com/sql/connect/ado-net/introduction-microsoft-data-sqlclient-namespace)
+- [SQL Server](https://learn.microsoft.com/sql/sql-server/)
 - [Microsoft.IdentityModel](https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet)
 - [BCrypt.Net-Next](https://github.com/BcryptNet/bcrypt.net)
 - [xUnit](https://xunit.net/)

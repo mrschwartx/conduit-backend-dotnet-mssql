@@ -11,7 +11,7 @@ public sealed class AppSettingsTests
     [Fact]
     public void AppliesDefaults()
     {
-        var settings = AppSettings.From(Configure(("AUTH_SECRET", Secret), ("DATABASE_URL", "postgres://u:p@h/db")));
+        var settings = AppSettings.From(Configure(("AUTH_SECRET", Secret), ("DATABASE_URL", "sqlserver://u:p@h/db")));
 
         Assert.Equal("conduit-api", settings.Name);
         Assert.Equal("0.0.0.0", settings.Host);
@@ -32,7 +32,7 @@ public sealed class AppSettingsTests
     {
         var settings = AppSettings.From(Configure(
             ("AUTH_SECRET", Secret),
-            ("DATABASE_URL", "postgres://u:p@h/db"),
+            ("DATABASE_URL", "sqlserver://u:p@h/db"),
             ("APP_LEVEL", "production"),
             ("APP_PORT", "9090"),
             ("BCRYPT_ROUNDS", "12"),
@@ -53,9 +53,9 @@ public sealed class AppSettingsTests
     public void RequiresTheAuthSecretAndTheDatabaseUrl()
     {
         var noSecret = Assert.Throws<ConfigurationException>(() =>
-            AppSettings.From(Configure(("DATABASE_URL", "postgres://u:p@h/db"))));
+            AppSettings.From(Configure(("DATABASE_URL", "sqlserver://u:p@h/db"))));
         var emptySecret = Assert.Throws<ConfigurationException>(() =>
-            AppSettings.From(Configure(("AUTH_SECRET", string.Empty), ("DATABASE_URL", "postgres://u:p@h/db"))));
+            AppSettings.From(Configure(("AUTH_SECRET", string.Empty), ("DATABASE_URL", "sqlserver://u:p@h/db"))));
         var noDatabase = Assert.Throws<ConfigurationException>(() =>
             AppSettings.From(Configure(("AUTH_SECRET", Secret))));
 
@@ -68,7 +68,7 @@ public sealed class AppSettingsTests
     public void RejectsShortSecrets()
     {
         var error = Assert.Throws<ConfigurationException>(() =>
-            AppSettings.From(Configure(("AUTH_SECRET", "too-short"), ("DATABASE_URL", "postgres://u:p@h/db"))));
+            AppSettings.From(Configure(("AUTH_SECRET", "too-short"), ("DATABASE_URL", "sqlserver://u:p@h/db"))));
 
         Assert.Equal("AUTH_SECRET must be at least 32 characters long", error.Message);
     }
@@ -81,7 +81,7 @@ public sealed class AppSettingsTests
             var error = Assert.Throws<ConfigurationException>(() =>
                 AppSettings.From(Configure(
                     ("AUTH_SECRET", Secret),
-                    ("DATABASE_URL", "postgres://u:p@h/db"),
+                    ("DATABASE_URL", "sqlserver://u:p@h/db"),
                     ("BCRYPT_ROUNDS", rounds))));
             Assert.Equal("BCRYPT_ROUNDS must be between 4 and 31", error.Message);
         }
@@ -90,7 +90,7 @@ public sealed class AppSettingsTests
     [Fact]
     public void BuildsTheUsersModuleOptions()
     {
-        var settings = AppSettings.From(Configure(("AUTH_SECRET", Secret), ("DATABASE_URL", "postgres://u:p@h/db")));
+        var settings = AppSettings.From(Configure(("AUTH_SECRET", Secret), ("DATABASE_URL", "sqlserver://u:p@h/db")));
 
         var options = settings.ToUsersOptions();
 

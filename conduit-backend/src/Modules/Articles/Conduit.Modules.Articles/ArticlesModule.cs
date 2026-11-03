@@ -13,7 +13,7 @@ public static class ArticlesModule
 {
     public static IServiceCollection AddArticlesModule(this IServiceCollection services)
     {
-        services.AddSingleton<IArticleRepository, PostgresArticleRepository>();
+        services.AddSingleton<IArticleRepository, SqlServerArticleRepository>();
         services.AddSingleton<ArticleSlugs>();
 
         services.AddSingleton<CreateArticle>();

@@ -20,8 +20,8 @@ public static class UsersModule
             options.AuthSecret,
             options.TokenTtl,
             provider.GetRequiredService<TimeProvider>()));
-        services.AddSingleton<IUserRepository, PostgresUserRepository>();
-        services.AddSingleton<IFollowRepository, PostgresFollowRepository>();
+        services.AddSingleton<IUserRepository, SqlServerUserRepository>();
+        services.AddSingleton<IFollowRepository, SqlServerFollowRepository>();
 
         services.AddSingleton<RegisterUser>();
         services.AddSingleton<AuthenticateUser>();

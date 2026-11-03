@@ -64,7 +64,7 @@ public sealed class Program
         builder.Logging.AddFilter("Conduit", settings.LogLevel);
         builder.Logging.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
 
-        var connectionString = PostgresConnectionString.Build(
+        var connectionString = SqlServerConnectionString.Build(
             settings.DatabaseUrl,
             settings.DatabasePoolMax,
             settings.DatabaseTimeoutMs);

@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 using Conduit.SharedKernel.Application;
 using Conduit.SharedKernel.Infrastructure.Events;
 using Conduit.SharedKernel.Infrastructure.Persistence;
@@ -11,7 +10,7 @@ public static class SharedKernelServiceCollectionExtensions
     public static IServiceCollection AddSharedKernel(this IServiceCollection services, string connectionString)
     {
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<NpgsqlDataSource>(_ => NpgsqlDataSource.Create(connectionString));
+        services.AddSingleton(new SqlServerDataSource(connectionString));
         services.AddSingleton<IEventBus, InMemoryEventBus>();
         services.AddSingleton<SqlMigrator>();
         services.AddHostedService<MigrationHostedService>();
